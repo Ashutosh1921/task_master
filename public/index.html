@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Razorpay Payment Integration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+
+        .payment-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #F37254;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #ff5c44;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="payment-container">
+        <h1>Razorpay Payment</h1>
+        <p>Click the button below to pay.</p>
+        <button id="pay-button">Pay ₹500</button>
+    </div>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+        document.getElementById('pay-button').onclick = function () {
+            // Call the backend to create the Razorpay order
+            fetch('http://localhost:4006/api/payment/create-order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    amount: 500,  // 500 INR (in actual value, not paise)
+                    currency: 'INR'
+                })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        // Razorpay order created successfully
+                        const options = {
+                            key: 'rzp_test_iHx3xHaP804dSX', // Replace with your Razorpay key
+                            amount: data.order.amount, // Amount in paise (500 INR = 50000 paise)
+                            currency: data.order.currency,
+                            name: 'Your App Name',
+                            order_id: data.order.id, // Order ID returned from backend
+                            handler: function (response) {
+                                // Send response to backend to verify the payment
+                                fetch('http://localhost:4006/api/payment/verify-payment', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        razorpay_order_id: response.razorpay_order_id,
+                                        razorpay_payment_id: response.razorpay_payment_id,
+                                        razorpay_signature: response.razorpay_signature
+                                    })
+                                })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            alert('Payment verified successfully!');
+                                        } else {
+                                            alert('Payment verification failed!');
+                                        }
+                                    })
+                                    .catch(err => {
+                                        console.error('Error verifying payment:', err);
+                                    });
+                            },
+                            prefill: {
+                                name: 'John Doe',
+                                email: 'john.doe@example.com',
+                                contact: '9876543210',
+                            },
+                            theme: {
+                                color: '#F37254'
+                            }
+                        };
+
+                        const rzp = new Razorpay(options);
+                        rzp.open();
+                    } else {
+                        alert('Error creating order. Please try again.');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error creating order:', err);
+                });
+        }
+    </script>
+
+</body>
+
+</html>
